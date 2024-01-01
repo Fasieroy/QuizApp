@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz Program</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    #quizContainer,
+    #resultContainer {
+      flex: 1;
+      display: none;
+      max-width: 800px;
+      margin: 20px auto;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .tab {
+      padding: 10px;
+      background-color: #FFA500;
+      color: white;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      margin-right: 10px;
+    }
+
+    #finishTab {
+      background-color: #4B0082;
+    }
+
+    #firstTab,
+    #lastTab {
+      background-color: #0000FF;
+    }
+
+    #circleContainer {
+      position: fixed;
+      top: 50%;
+      right: 0;
+      transform: translateY(-50%);
+      background-color: #333;
+      color: white;
+      padding: 10px;
+      cursor: pointer;
+      border-top-left-radius: 10px;
+      border-bottom-left-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .circle {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      background-color: #333;
+      color: white;
+      text-align: center;
+      line-height: 20px;
+      border-radius: 50%;
+      margin: 5px 0;
+      cursor: pointer;
+    }
+
+    #timerContainer {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      width: 60px;
+      height: 60px;
+      background-color: #333;
+      color: white;
+      text-align: center;
+      line-height: 60px;
+      border-radius: 50%;
+      font-size: 1.2em;
+    }
+
+    .question-container {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      margin-bottom: 10px;
+    }
+
+    .options-container {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .option-container {
+      margin-bottom: 10px;
+    }
+
+    .option {
+      display: inline-block;
+      padding: 10px;
+      background-color: #3498db;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .option:hover {
+      background-color: #2980b9;
+    }
+  </style>
+</head>
+<body>
+  <div>
+    <input type="file" id="fileInput">
+    <button class="tab" onclick="startQuiz()">Start Quiz</button>
+
+    <div id="quizContainer">
+      <div id="question" class="question-container"></div>
+      <div id="optionsForm" class="options-container"></div>
+      <br>
+      <button class="tab" id="backTab" onclick="showQuestion(currentQuestion - 1)">Back</button>
+      <button class="tab" id="nextTab" onclick="evaluateAnswer()">Next</button>
+      <button class="tab" id="finishTab" onclick="finishQuiz()">Finish Quiz</button>
+    </div>
+
+    <div id="resultContainer">
+      <div id="correctAnswers">Correct Answers: 0</div>
+      <div id="incorrectAnswers">Incorrect Answers: 0</div>
+      <div id="percentage">Percentage: 0%</div>
+    </div>
+
+    <div id="circleContainer"></div>
+
+    <div id="timerContainer"></div>
+  </div>
+
+  <script>
+    let currentQuestion = 1;
+    let correctAnswers = 0;
+    let incorrectAnswers = 0;
+    let questions = [];
+    let timer;
+    let selectedOptions = {};
+
+    function startQuiz() {
+      const fileInput = document.getElementById('fileInput');
+      if (!fileInput.files.length) {
+        alert('Please choose a text file.');
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+
+      reader.onload = function (e) {
+        const lines = e.target.result.split('\n').map(line => line.trim());
+
+        // Parse questions, options, and correct answers
+        questions = [];
+        for (let i = 0; i < lines.length; i++) {
+          const [question, option1, option2, option3, option4, correctAnswer] = lines[i].split('|');
+          questions.push({
+            question,
+            options: [option1, option2, option3, option4],
+            correctAnswer
+          });
+        }
+
+        document.getElementById('quizContainer').style.display = 'block';
+        document.getElementById('fileInput').style.display = 'none';
+        startTimer();
+        showQuestion(currentQuestion);
+        populateSidebar();
+      };
+
+      reader.readAsText(file);
+    }
+
+    function startTimer() {
+      let timeRemaining = 600;
+      timer = setInterval(function () {
+        const timerContainer = document.getElementById('timerContainer');
+        const minutes = Math.floor(timeRemaining / 60);
+        const seconds = timeRemaining % 60;
+        timerContainer.innerText = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        timeRemaining--;
+
+        if (timeRemaining < 0) {
+          clearInterval(timer);
+          finishQuiz();
+        }
+      }, 1000);
+    }
+
+    function finishQuiz() {
+      clearInterval(timer);
+      const confirmFinish = confirm('Are you sure you want to finish?');
+      if (confirmFinish) {
+        // Check the correctness of the selected options for each question
+        for (let i = 1; i <= questions.length; i++) {
+          const currentQuestionObj = questions[i - 1];
+          const selectedOption = selectedOptions[i];
+          if (selectedOption !== undefined && selectedOption === parseInt(currentQuestionObj.correctAnswer) - 1) {
+            correctAnswers++;
+          } else {
+            incorrectAnswers++;
+          }
+        }
+
+        document.getElementById('quizContainer').style.display = 'none';
+        document.getElementById('resultContainer').style.display = 'block';
+        document.getElementById('correctAnswers').innerText = `Correct Answers: ${correctAnswers}`;
+        document.getElementById('incorrectAnswers').innerText = `Incorrect Answers: ${incorrectAnswers}`;
+        const totalQuestions = correctAnswers + incorrectAnswers;
+        const percentage = (correctAnswers / totalQuestions) * 100 || 0;
+        document.getElementById('percentage').innerText = `Percentage: ${percentage.toFixed(2)}%`;
+
+        // Clear the selected options for the next quiz
+        selectedOptions = {};
+      }
+    }
+
+    function showQuestion(questionNumber) {
+      if (questionNumber < 1 || questionNumber > questions.length) {
+        return;
+      }
+
+      currentQuestion = questionNumber;
+      const questionObj = questions[questionNumber - 1];
+      const questionElement = document.getElementById('question');
+      const optionsForm = document.getElementById('optionsForm');
+
+      questionElement.innerHTML = `<div class="question-container">${questionObj.question}</div>`;
+
+      optionsForm.innerHTML = ''; // Clear previous options
+
+      for (let i = 0; i < questionObj.options.length; i++) {
+        const optionContainer = document.createElement('div');
+        optionContainer.className = 'option-container';
+        const optionLabel = document.createElement('label');
+        optionLabel.className = 'option';
+        const optionIndex = i + 1; // Display options starting from 1
+        optionLabel.innerHTML = `<input type="radio" name="option" value="${i}" onclick="selectOption(${optionIndex})"> ${questionObj.options[i]}`;
+
+        optionContainer.appendChild(optionLabel);
+        optionsForm.appendChild(optionContainer);
+
+        // Pre-select the option if it was chosen before
+        const preSelectedOption = selectedOptions[questionNumber];
+        if (preSelectedOption !== undefined && preSelectedOption === i) {
+          optionLabel.querySelector('input').checked = true;
+        }
+      }
+
+      updateCircleContainer();
+    }
+
+    function updateCircleContainer() {
+      const circleContainer = document.getElementById('circleContainer');
+      circleContainer.innerHTML = '';
+
+      for (let i = 1; i <= questions.length; i++) {
+        const circle = document.createElement('div');
+        circle.className = 'circle';
+        circle.innerText = i;
+        circle.onclick = function () {
+          showQuestion(i);
+        };
+        circleContainer.appendChild(circle);
+
+        // Set color based on question status
+        if (i < currentQuestion) {
+          circle.style.backgroundColor = '#4CAF50'; // Green for answered
+        } else if (i === currentQuestion) {
+          circle.style.backgroundColor = '#0000FF'; // Blue for current question
+        }
+      }
+    }
+
+    function populateSidebar() {
+      // No sidebar in this version
+    }
+
+    function selectOption(optionIndex) {
+      selectedOptions[currentQuestion] = optionIndex - 1;
+    }
+
+    function evaluateAnswer() {
+      const selectedOption = document.querySelector('input[name="option"]:checked');
+      if (selectedOption) {
+        const selectedValue = parseInt(selectedOption.value);
+        const correctAnswer = parseInt(questions[currentQuestion - 1].correctAnswer);
+
+        if (selectedValue === correctAnswer) {
+          correctAnswers++;
+        } else {
+          incorrectAnswers++;
+        }
+      }
+
+      if (currentQuestion < questions.length) {
+        showQuestion(currentQuestion + 1);
+      } else {
+        finishQuiz();
+      }
+    }
+  </script>
+</body>
+</html>
